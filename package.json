@@ -1,0 +1,18 @@
+{
+  "name": "rito-stats-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^0.18.0",
+    "dotenv": "^7.0.0",
+    "express": "^4.16.4",
+    "node-loader": "^0.6.0",
+    "ravend-rpc": "^1.0.5",
+    "socket.io": "^2.2.0",
+    "zeromq": "^5.1.0"
+  },
+  "devDependencies": {}
+}
