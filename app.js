@@ -18,11 +18,12 @@ var rpc = new RpcClient({
   port:     process.env.RPC_PORT
 })
 
-const ZMQ_URI           = process.env.ZMQ_URI
-const BURN_ADDRESSES    = process.env.BURN_ADDRESSES.split(',').map(a => a.trim())
-const DEV_FUND_ADDRESS  = process.env.DEV_FUND_ADDRESS
-const HISTORY_FILENAME  = process.env.HISTORY_FILENAME
-const SAFETRADE_MARKET  = process.env.SAFETRADE_MARKET
+const ZMQ_URI             = process.env.ZMQ_URI
+const BURN_ADDRESSES      = process.env.BURN_ADDRESSES.split(',').map(a => a.trim())
+const DEV_FUND_ADDRESS    = process.env.DEV_FUND_ADDRESS
+const HISTORY_FILENAME    = process.env.HISTORY_FILENAME
+const SAFETRADE_MARKET    = process.env.SAFETRADE_MARKET
+const CRYPTOBRIDGE_MARKET = process.env.CRYPTOBRIDGE_MARKET
 
 var daily_info          = {}
 var current_block_info  = {'height':0, 'time':0, 'networkhashps':0, 'difficulty':0, 'reward':0, 'dev_fund':0, 'tx_fee':0, 'total_rewards':0, 'total_dev_funds':0, 'total_tx_fees':0, 'total_burned':0}
@@ -112,15 +113,24 @@ function getBlockInfo(block_hash) {
 
 // -- Price Functions -- //
 
-function getLastPrice(market) {
-  return new Promise((resolve, reject) =>
-    axios.get('https://safe.trade/api/v2/tickers/'+market)
-      .then(ret => resolve(Number(ret.data.ticker.last)))
-      .catch(err => reject(err))
-  )
+function getLastPrice(exchange, market) {
+  switch (exchange) {
+    case 'cryptobridge':
+      return new Promise((resolve, reject) =>
+        axios.get('https://api.crypto-bridge.org/api/v1/ticker/'+market)
+          .then(ret => resolve(Number(ret.data.last)))
+          .catch(err => reject(err))
+      )
+    case 'safetrade':
+      return new Promise((resolve, reject) =>
+        axios.get('https://safe.trade/api/v2/tickers/'+market)
+          .then(ret => resolve(Number(ret.data.ticker.last)))
+          .catch(err => reject(err))
+      )
+  }
 }
 
-function getPriceChange(market) {
+function getPriceChange(exchange, market) {
   return new Promise((resolve, reject) =>
     axios.get('https://safe.trade/api/v2/trades?market='+market)
       .then(ret => {
@@ -149,16 +159,17 @@ function getBTCPrice() {
   )
 }
 
-function getPriceInfo(market) {
+function getPriceInfo() {
   return new Promise((resolve, reject) => {
     price_info = {}
     Promise.all([
-      getLastPrice(SAFETRADE_MARKET),
-      getPriceChange(SAFETRADE_MARKET),
+      getLastPrice('cryptobridge', CRYPTOBRIDGE_MARKET),
+      getLastPrice('safetrade', SAFETRADE_MARKET),
+      getPriceChange('safetrade', SAFETRADE_MARKET),
       getBTCPrice()
     ])
     .then(values => {
-      [price_info.last, price_info.change, price_info.btc] = values
+      [price_info.cryptobridge_last, price_info.safetrade_last, price_info.safetrade_change, price_info.btc] = values
       resolve(price_info)
     })
     .catch(err => reject(err))
@@ -219,7 +230,7 @@ function initializeSocketComm() {
 
 function pollPriceInfoPeriodically() {
   setInterval(() => {
-    getPriceInfo(SAFETRADE_MARKET)
+    getPriceInfo()
       .then(price_info => {
         current_price_info = price_info
         io.emit('currentPriceInfo', current_price_info)
@@ -279,9 +290,9 @@ function processNewBlock(block_number) {
             appendToHistoryFile(block_info)
             addToDailyInfo(block_info)
             Object.assign(current_block_info, block_info)
-            current_block_info.total_rewards   += Math.round(current_block_info.reward * 100000000)
-            current_block_info.total_dev_funds += Math.round(current_block_info.dev_fund * 100000000)
-            current_block_info.total_tx_fees   += Math.round(current_block_info.tx_fee * 100000000)
+            current_block_info.total_rewards   += Math.round(block_info.reward * 100000000)
+            current_block_info.total_dev_funds += Math.round(block_info.dev_fund * 100000000)
+            current_block_info.total_tx_fees   += Math.round(block_info.tx_fee * 100000000)
             io.emit('currentBlockInfo', current_block_info)
             resolve()
           })
@@ -326,9 +337,9 @@ function initializeZMQcomm() {
         .then(block_info => {
           appendToHistoryFile(block_info)
           Object.assign(current_block_info, block_info)
-          current_block_info.total_rewards   += block_info.reward
-          current_block_info.total_dev_funds += block_info.dev_fund
-          current_block_info.total_tx_fees   += block_info.tx_fee
+          current_block_info.total_rewards   += Math.round(block_info.reward * 100000000)
+          current_block_info.total_dev_funds += Math.round(block_info.dev_fund * 100000000)
+          current_block_info.total_tx_fees   += Math.round(block_info.tx_fee * 100000000)
           getTotalBurned()
             .then(burned => {
               current_block_info.total_burned = burned
