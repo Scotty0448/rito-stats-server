@@ -377,7 +377,8 @@ app.get('/', (req, res) => {
 })
 
 app.get('/api/supply', (req, res) => {
-  res.send(200, current_block_info.total_rewards + current_block_info.total_dev_funds - current_block_info.total_burned)
+  var supply = current_block_info.total_rewards + current_block_info.total_dev_funds - current_block_info.total_burned
+  res.send(200, Math.round(supply/100000000))
 })
 
 http.listen(8002, () => {
