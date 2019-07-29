@@ -376,6 +376,10 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html')
 })
 
-http.listen(8000, () => {
+app.get('/api/supply', (req, res) => {
+  res.send(200, current_block_info.total_rewards + current_block_info.total_dev_funds - current_block_info.total_burned)
+})
+
+http.listen(8002, () => {
   initialize()
 })
