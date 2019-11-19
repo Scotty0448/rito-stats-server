@@ -22,8 +22,9 @@ const ZMQ_URI             = process.env.ZMQ_URI
 const BURN_ADDRESSES      = process.env.BURN_ADDRESSES.split(',').map(a => a.trim())
 const DEV_FUND_ADDRESS    = process.env.DEV_FUND_ADDRESS
 const HISTORY_FILENAME    = process.env.HISTORY_FILENAME
-const SAFETRADE_MARKET    = process.env.SAFETRADE_MARKET
 const CRYPTOBRIDGE_MARKET = process.env.CRYPTOBRIDGE_MARKET
+const SAFETRADE_MARKET    = process.env.SAFETRADE_MARKET
+const GRAVIEX_MARKET      = process.env.GRAVIEX_MARKET
 
 var daily_info          = {}
 var current_block_info  = {'height':0, 'time':0, 'networkhashps':0, 'difficulty':0, 'reward':0, 'dev_fund':0, 'tx_fee':0, 'total_rewards':0, 'total_dev_funds':0, 'total_tx_fees':0, 'total_burned':0}
@@ -127,6 +128,12 @@ function getLastPrice(exchange, market) {
           .then(ret => resolve(Number(ret.data.ticker.last)))
           .catch(err => reject(err))
       )
+    case 'graviex':
+      return new Promise((resolve, reject) =>
+        axios.get('https://graviex.net/api/v3/tickers/'+market+'.json')
+          .then(ret => resolve(Number(ret.data.last)))
+          .catch(err => reject(err))
+      )
   }
 }
 
@@ -165,11 +172,12 @@ function getPriceInfo() {
     Promise.all([
       getLastPrice('cryptobridge', CRYPTOBRIDGE_MARKET),
       getLastPrice('safetrade', SAFETRADE_MARKET),
+      getLastPrice('graviex', GRAVIEX_MARKET),
       getPriceChange('safetrade', SAFETRADE_MARKET),
       getBTCPrice()
     ])
     .then(values => {
-      [price_info.cryptobridge_last, price_info.safetrade_last, price_info.safetrade_change, price_info.btc] = values
+      [price_info.cryptobridge_last, price_info.safetrade_last, price_info.graviex_last, price_info.safetrade_change, price_info.btc] = values
       resolve(price_info)
     })
     .catch(err => reject(err))
