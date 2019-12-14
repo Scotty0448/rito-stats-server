@@ -22,9 +22,6 @@ const ZMQ_URI             = process.env.ZMQ_URI
 const BURN_ADDRESSES      = process.env.BURN_ADDRESSES.split(',').map(a => a.trim())
 const DEV_FUND_ADDRESS    = process.env.DEV_FUND_ADDRESS
 const HISTORY_FILENAME    = process.env.HISTORY_FILENAME
-const CRYPTOBRIDGE_MARKET = process.env.CRYPTOBRIDGE_MARKET
-const SAFETRADE_MARKET    = process.env.SAFETRADE_MARKET
-const GRAVIEX_MARKET      = process.env.GRAVIEX_MARKET
 
 var daily_info          = {}
 var current_block_info  = {'height':0, 'time':0, 'networkhashps':0, 'difficulty':0, 'reward':0, 'dev_fund':0, 'tx_fee':0, 'total_rewards':0, 'total_dev_funds':0, 'total_tx_fees':0, 'total_burned':0}
@@ -114,50 +111,6 @@ function getBlockInfo(block_hash) {
 
 // -- Price Functions -- //
 
-function getLastPrice(exchange, market) {
-  switch (exchange) {
-    case 'cryptobridge':
-      return new Promise((resolve, reject) =>
-        axios.get('https://api.crypto-bridge.org/api/v1/ticker/'+market)
-          .then(ret => resolve(Number(ret.data.last)))
-          .catch(err => reject(err))
-      )
-    case 'safetrade':
-      return new Promise((resolve, reject) =>
-        axios.get('https://safe.trade/api/v2/tickers/'+market)
-          .then(ret => resolve(Number(ret.data.ticker.last)))
-          .catch(err => reject(err))
-      )
-    case 'graviex':
-      return new Promise((resolve, reject) =>
-        axios.get('https://graviex.net/api/v3/tickers/'+market+'.json')
-          .then(ret => resolve(Number(ret.data.last)))
-          .catch(err => reject(err))
-      )
-  }
-}
-
-function getPriceChange(exchange, market) {
-  return new Promise((resolve, reject) =>
-    axios.get('https://safe.trade/api/v2/trades?market='+market)
-      .then(ret => {
-        last_price = ret.data[0].price
-        change = ''
-        for (i = 0; i < ret.data.length; i++) {
-          if (last_price > ret.data[i].price) {
-            change = 'up'
-            break
-          } else if (last_price < ret.data[i].price) {
-            change = 'down'
-            break
-          }
-        }
-        resolve(change)
-      })
-      .catch(err => reject(err))
-  )
-}
-
 function getBTCPrice() {
   return new Promise((resolve, reject) =>
     axios.get('https://cex.io/api/ticker/BTC/USD')
@@ -166,18 +119,27 @@ function getBTCPrice() {
   )
 }
 
+function getPrices() {
+  return new Promise((resolve, reject) =>
+    axios.get('https://api.coingecko.com/api/v3/coins/rito/tickers')
+      .then(ret => {
+        var tickers = ret.data.tickers.filter(ticker => {return ticker.target=='BTC' && ticker.volume > 0 && ticker.market.name != 'CITEX'})
+        var prices = tickers.map(ticker => {return {name:ticker.market.name, price:ticker.last, volume:ticker.volume}})
+        resolve(prices.sort((a,b) => b.volume - a.volume))
+      })
+      .catch(err => reject(err))
+  )
+}
+
 function getPriceInfo() {
   return new Promise((resolve, reject) => {
     price_info = {}
     Promise.all([
-      getLastPrice('cryptobridge', CRYPTOBRIDGE_MARKET),
-      getLastPrice('safetrade', SAFETRADE_MARKET),
-      getLastPrice('graviex', GRAVIEX_MARKET),
-      getPriceChange('safetrade', SAFETRADE_MARKET),
-      getBTCPrice()
+      getBTCPrice(),
+      getPrices()
     ])
     .then(values => {
-      [price_info.cryptobridge_last, price_info.safetrade_last, price_info.graviex_last, price_info.safetrade_change, price_info.btc] = values
+      [price_info.btc, price_info.rito] = values
       resolve(price_info)
     })
     .catch(err => reject(err))
@@ -382,6 +344,14 @@ async function initialize() {
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/index.html')
+})
+
+app.get('/prices', (req, res) => {
+  getPriceInfo()
+    .then(price_info => {
+      res.send(200, price_info)
+    })
+    .catch(err => handleError(err))
 })
 
 app.get('/api/supply', (req, res) => {
