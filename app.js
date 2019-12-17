@@ -123,7 +123,7 @@ function getPrices() {
   return new Promise((resolve, reject) =>
     axios.get('https://api.coingecko.com/api/v3/coins/rito/tickers')
       .then(ret => {
-        var tickers = ret.data.tickers.filter(ticker => {return ticker.target=='BTC' && ticker.volume > 0 && ticker.market.name != 'CITEX'})
+        var tickers = ret.data.tickers.filter(ticker => {return ticker.target=='BTC' && ticker.volume > 0 && ticker.market.name != 'CITEX' && ticker.market.name != 'CryptoBridge'})
         var prices = tickers.map(ticker => {return {name:ticker.market.name, price:ticker.last, volume:ticker.volume}})
         resolve(prices.sort((a,b) => b.volume - a.volume))
       })
