@@ -2,8 +2,14 @@ var dotenv = require('dotenv')
 var fs = require('fs')
 var readline = require('readline')
 var app = require('express')()
+var cors = require('cors'); app.use(cors())
 var http = require('http').Server(app)
-var io = require('socket.io')(http)
+var io = require('socket.io')(http, {
+  cors: {
+    origin: "https://stats.ritocoin.org",
+    methods: ["GET", "POST"]
+  }
+})
 var axios = require('axios')
 var zmq = require('zeromq')
 var RpcClient = require('ravend-rpc')
