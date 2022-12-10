@@ -8,7 +8,7 @@
   "dependencies": {
     "axios": "^0.21.1",
     "dotenv": "^8.2.0",
-    "express": "^4.17.1",
+    "express": "^4.17.3",
     "node-loader": "^1.0.2",
     "ravend-rpc": "^1.0.5",
     "socket.io": "^3.0.5",
